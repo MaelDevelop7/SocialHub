@@ -1,5 +1,13 @@
 import express from "express";
 import cors from "cors";
+import bodyParser from "body-parser";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 interface Post {
   id: number;
@@ -9,29 +17,48 @@ interface Post {
 }
 
 const app = express();
-
-// Middleware
 app.use(cors());
-app.use(express.json()); // plus besoin de body-parser
+app.use(bodyParser.json());
 
+const DATA_FILE = path.join(__dirname, "posts.json");
+
+// Lire le fichier JSON au démarrage
 let posts: Post[] = [];
 let currentId = 1;
 
-// API pour récupérer tous les posts
+const loadPosts = () => {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, "utf-8");
+      posts = JSON.parse(data);
+      if (posts.length > 0) {
+        currentId = Math.max(...posts.map((p) => p.id)) + 1;
+      }
+    }
+  } catch (err) {
+    console.error("Erreur lors du chargement des posts :", err);
+    posts = [];
+  }
+};
+
+const savePosts = () => {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(posts, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Erreur lors de la sauvegarde des posts :", err);
+  }
+};
+
+// Charger les posts au démarrage
+loadPosts();
+
+// GET - récupérer tous les posts
 app.get("/api/posts", (req, res) => {
-  console.log("GET /api/posts");
   res.json(posts);
 });
 
-// API pour créer un post
+// POST - créer un post
 app.post("/api/posts", (req, res) => {
-  console.log("POST /api/posts", req.body);
-
-  if (!req.body) {
-    console.error("Erreur : body manquant");
-    return res.status(400).json({ error: "Body manquant" });
-  }
-
   const { author, content } = req.body;
 
   if (!author || !content) {
@@ -43,32 +70,47 @@ app.post("/api/posts", (req, res) => {
     id: currentId++,
     author,
     content,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
 
   posts.push(newPost);
-  console.log("Post créé :", newPost);
+  savePosts();
   res.status(201).json(newPost);
 });
 
-// API pour supprimer un post
-app.delete("/api/posts/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  console.log(`DELETE /api/posts/${id}`);
+// PUT - modifier un post
+app.put("/api/posts/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { content } = req.body;
 
-  if (isNaN(id)) {
-    console.error("Erreur : ID invalide");
-    return res.status(400).json({ error: "ID invalide" });
+  const post = posts.find((p) => p.id === id);
+  if (!post) {
+    console.error(`Erreur : post avec id ${id} non trouvé`);
+    return res.status(404).json({ error: "Post not found" });
   }
 
-  const postExists = posts.some(post => post.id === id);
+  if (!content) {
+    console.error("Erreur : content manquant pour la modification");
+    return res.status(400).json({ error: "content required" });
+  }
+
+  post.content = content;
+  savePosts();
+  res.json(post);
+});
+
+// DELETE - supprimer un post
+app.delete("/api/posts/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const postExists = posts.some((p) => p.id === id);
+
   if (!postExists) {
     console.error(`Erreur : post avec id ${id} non trouvé`);
     return res.status(404).json({ error: "Post not found" });
   }
 
-  posts = posts.filter(post => post.id !== id);
-  console.log(`Post avec id ${id} supprimé`);
+  posts = posts.filter((post) => post.id !== id);
+  savePosts();
   res.status(204).send();
 });
 
