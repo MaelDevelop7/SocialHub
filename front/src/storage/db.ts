@@ -1,43 +1,82 @@
-export interface Post {
-  id: number;
-  author: string;
-  content: string;
-  createdAt: string;
-}
+import { openDB } from "idb";
+import type { Post } from "../types";
 
-export function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("SocialDB", 1);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      db.createObjectStore("posts", { keyPath: "id" });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+const DB_NAME = "socialhub";
+const STORE_NAME = "posts";
+const API_URL = "http://localhost:3000/api/posts";
+
+export async function initDB() {
+  return openDB(DB_NAME, 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+    },
   });
 }
 
-export async function savePosts(posts: Post[]) {
-  const db = await openDB();
-  const tx = db.transaction("posts", "readwrite");
-  const store = tx.objectStore("posts");
-  posts.forEach(post => store.put(post));
-  return tx.oncomplete;
+export async function getPostsFromLocal(): Promise<Post[]> {
+  const db = await initDB();
+  return (await db.getAll(STORE_NAME)) || [];
 }
 
-export async function getPosts(): Promise<Post[]> {
-  const db = await openDB();
-  return new Promise((resolve) => {
-    const tx = db.transaction("posts", "readonly");
-    const store = tx.objectStore("posts");
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-  });
+export async function savePostsLocal(posts: Post[]) {
+  const db = await initDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  for (const post of posts) {
+    await tx.store.put(post);
+  }
+  await tx.done;
 }
 
-export async function deletePost(id: number) {
-  const db = await openDB();
-  const tx = db.transaction("posts", "readwrite");
-  tx.objectStore("posts").delete(id);
-  return tx.oncomplete;
+export async function deletePostLocal(id: number) {
+  const db = await initDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  await tx.store.delete(id);
+  await tx.done;
+}
+
+// Sync avec le serveur
+export async function syncWithServer(): Promise<Post[]> {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error("Impossible de récupérer les posts du serveur");
+    const serverPosts: Post[] = await res.json();
+    await savePostsLocal(serverPosts);
+    return serverPosts;
+  } catch (err) {
+    console.error("Erreur de sync serveur :", err);
+    return getPostsFromLocal();
+  }
+}
+
+// Ajouter un post côté serveur + local
+export async function addPost(post: Omit<Post, "id" | "createdAt">): Promise<Post | null> {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(post),
+    });
+    if (!res.ok) throw new Error("Impossible d'ajouter le post");
+    const newPost: Post = await res.json();
+    await savePostsLocal([newPost]);
+    return newPost;
+  } catch (err) {
+    console.error("Erreur ajout post :", err);
+    return null;
+  }
+}
+
+// Supprimer un post côté serveur + local
+export async function deletePost(id: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Impossible de supprimer le post");
+    await deletePostLocal(id);
+    return true;
+  } catch (err) {
+    console.error("Erreur suppression post :", err);
+    return false;
+  }
 }

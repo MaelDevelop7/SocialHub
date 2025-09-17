@@ -1,0 +1,110 @@
+/* Home.css */
+
+/* Container global */
+.home {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+/* Titre */
+.home h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+/* AddPost */
+.add-post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.add-post input,
+.add-post textarea {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: none;
+}
+
+.add-post button {
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-post button:hover {
+  background-color: #0056b3;
+}
+
+/* Message d'erreur */
+.error-message {
+  color: red;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+/* Liste des posts */
+.posts {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Post individuel */
+.post {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  transition: box-shadow 0.2s;
+}
+
+.post:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.post p {
+  margin: 5px 0;
+}
+
+.post button {
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.post button:hover {
+  background-color: #a71d2a;
+}
+
+/* Responsive mobile */
+@media (max-width: 600px) {
+  .home {
+    padding: 10px;
+  }
+
+  .add-post input,
+  .add-post textarea {
+    font-size: 13px;
+  }
+
+  .add-post button,
+  .post button {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
