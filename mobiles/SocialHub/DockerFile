@@ -1,0 +1,25 @@
+# Utiliser OpenJDK 17 (compatible avec Android Gradle Plugin récent)
+FROM openjdk:17-jdk-slim
+
+# Variables d'environnement Android
+ENV ANDROID_SDK_ROOT /opt/android-sdk
+ENV PATH ${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools
+
+# Installer les dépendances essentielles
+RUN apt-get update && apt-get install -y wget unzip git curl
+
+# Télécharger les cmdline-tools Android
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    cd ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O cmdline-tools.zip && \
+    unzip cmdline-tools.zip -d latest && rm cmdline-tools.zip
+
+# Accepter les licences Android
+RUN yes | sdkmanager --licenses
+
+# Installer les plateformes et build-tools nécessaires
+RUN sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+WORKDIR /workspace
+
+CMD ["bash"]
